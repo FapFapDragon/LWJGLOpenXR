@@ -1,0 +1,25 @@
+{
+  "build": "release",
+  "mode": "zip",
+  "selectedAddons": [],
+  "platform": [
+    "windows"
+  ],
+  "descriptions": false,
+  "compact": false,
+  "hardcoded": false,
+  "javadoc": false,
+  "includeJSON": true,
+  "source": true,
+  "osgi": false,
+  "language": "groovy",
+  "contents": [
+    "lwjgl",
+    "lwjgl-glfw",
+    "lwjgl-jawt",
+    "lwjgl-opengl",
+    "lwjgl-openxr"
+  ],
+  "version": "3.3.1",
+  "versionLatest": "3.3.1"
+}
