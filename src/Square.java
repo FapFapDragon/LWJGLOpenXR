@@ -10,7 +10,7 @@ import static org.lwjgl.opengl.GL31C.*;
 public class Square {
 
     //Values needed for Model Matrix
-    private Vector3f position    = new Vector3f(1, 1, 1);
+    private Vector3f position    = new Vector3f(0, -2, 7);
     private Quaternionf rotation = new Quaternionf(0f, 0f, 0f, 1f);
     private Vector3f scale       = new Vector3f(1f, 1f, 1f);
 

@@ -76,7 +76,7 @@ public class Main {
 
 
         window = glfwCreateWindow(width, height, "JavaOpenGLXR", NULL, NULL);
-
+        glfwSetCursorPos(window, width/2, height/2);
         if (window == NULL)
         {
             throw new RuntimeException("Unable to Create window");
