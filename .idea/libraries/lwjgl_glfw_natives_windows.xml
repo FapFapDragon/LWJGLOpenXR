@@ -10,7 +10,6 @@
       <root url="jar://$PROJECT_DIR$/src/lwjgl-3.3.1/lwjgl-openxr-natives-windows.jar!/" />
       <root url="jar://$PROJECT_DIR$/src/lwjgl-3.3.1/lwjgl-openxr.jar!/" />
       <root url="jar://$PROJECT_DIR$/src/lwjgl-3.3.1/lwjgl.jar!/" />
-      <root url="jar://$PROJECT_DIR$/src/joml/joml-1.10.5.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES>

@@ -53,8 +53,8 @@ the per-file data remains authoritative.)
   "`Apache-2.0 OR MIT`" .
   Relevant files include:
 ** "`specification/registry/xr.xml`"
-** "`include/openxr/openxr_platform_defines.h`"
-** The generated OpenXR headers "`openxr.h`", "`openxr_platform.h`", and
+** "`include/LWJGLOpenXRSample.openxr/openxr_platform_defines.h`"
+** The generated OpenXR headers "`LWJGLOpenXRSample.openxr.h`", "`openxr_platform.h`", and
    "`openxr_reflection.h`".
 ** Source files in "`src/loader/`", and a few files in "`src/common/`".
 ** Generated source files used by the loader (including pre-generated in

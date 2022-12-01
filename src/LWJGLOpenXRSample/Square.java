@@ -1,3 +1,5 @@
+package LWJGLOpenXRSample;
+
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -76,7 +78,7 @@ public class Square {
     }
 
     /*
-     Constructor: Run when Square is created, uses default shader since none is provided
+     Constructor: Run when LWJGLOpenXRSample.Square is created, uses default shader since none is provided
      inputs:     None
      returns:    None
     */
@@ -116,7 +118,7 @@ public class Square {
 
 
     /*
-        initVBO:    Draw the Square
+        initVBO:    Draw the LWJGLOpenXRSample.Square
         inputs:     View Projection matrix for Camera
         returns:    None
        */
@@ -126,13 +128,13 @@ public class Square {
         Matrix4f mvp = new Matrix4f();
         vp_matrix.mul(model_matrix, mvp);
 
-        //Pass MVP matrix to the Shader
+        //Pass MVP matrix to the LWJGLOpenXRSample.Shader
         try( MemoryStack stack = MemoryStack.stackPush()) {
             glUniformMatrix4fv(this.mvp_location, false, mvp.get(stack.mallocFloat(16)));
 
         }
 
-        //Draw the Square
+        //Draw the LWJGLOpenXRSample.Square
         glUseProgram(shader.getProgram());
         ARBVertexArrayObject.glBindVertexArray(vao);
         ARBVertexBufferObject.glBindBufferARB(ARBVertexBufferObject.GL_ARRAY_BUFFER_ARB, vbo);

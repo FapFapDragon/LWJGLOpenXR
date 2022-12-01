@@ -1,4 +1,4 @@
-
+package LWJGLOpenXRSample;
 //File Stuff
 import java.io.IOException;
 import java.lang.RuntimeException;
@@ -59,7 +59,7 @@ public class Shader {
     }
 
     /*
-     Build Program: Builds shader program from vertex and fragment shaders
+     Build Program: Builds shader program from vertex and fragment LWJGLOpenXRSample.shaders
      inputs:     Pointer to vertex shader, pointer to fragment shader
      returns:    None
     */
@@ -98,7 +98,7 @@ public class Shader {
      Constructor: Run when shader is created
      inputs:     the path to the vertex shader, the path to the fragment shader
      returns:    None
-     throws:     IOException if vert or frag shader can't be loaded from file, RuntimeException if shaders can't compile
+     throws:     IOException if vert or frag shader can't be loaded from file, RuntimeException if LWJGLOpenXRSample.shaders can't compile
     */
     public Shader(String vertex_path,String fragment_path) throws IOException, RuntimeException
     {
@@ -118,7 +118,7 @@ public class Shader {
      Constructor: Run when shader is created
      inputs:     the path to the vertex shader, the path to the fragment shader, whether to set this shader as default
      returns:    None
-     throws:     IOException if vert or frag shader can't be loaded from file, RuntimeException if shaders can't compile
+     throws:     IOException if vert or frag shader can't be loaded from file, RuntimeException if LWJGLOpenXRSample.shaders can't compile
     */
     public Shader(String vertex_path,String fragment_path, boolean default_shader) throws IOException, RuntimeException
     {

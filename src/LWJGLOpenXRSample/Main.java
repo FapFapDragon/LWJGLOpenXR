@@ -1,10 +1,14 @@
+package LWJGLOpenXRSample;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.GL;
-import java.math.*;
+import LWJGLOpenXRSample.openxr.XrProgram;
+import org.lwjgl.opengl.GL40;
+import org.lwjgl.openxr.XR;
+
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL31C.*;
@@ -46,12 +50,15 @@ public class Main {
 
     float verticalAngle = 0;
 
+    private XrProgram program;
+
 
     private Input input;
     Shader default_shader;
     Triangle tri;
 
     Square sqr;
+
 
     /*
      init: Initialize GLFW, openGL, And any objects to be drawn
@@ -60,6 +67,7 @@ public class Main {
     */
     private boolean init()
     {
+
         GLFWErrorCallback.createPrint(System.err).set();
 
         if (!glfwInit())
@@ -72,7 +80,6 @@ public class Main {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
-
 
 
         window = glfwCreateWindow(width, height, "JavaOpenGLXR", NULL, NULL);
@@ -90,8 +97,8 @@ public class Main {
 
         GL.createCapabilities();
 
-        String vertShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenGLSample\\src\\shaders\\vert.vsh";
-        String fragShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenGLSample\\src\\shaders\\frag.fg";
+        String vertShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenXR\\src\\LWJGLOpenXRSample\\shaders\\vert.vsh";
+        String fragShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenXR\\src\\LWJGLOpenXRSample\\shaders\\frag.fg";
         try {
             default_shader = new Shader(vertShaderPath, fragShaderPath, true);
         }
@@ -102,6 +109,13 @@ public class Main {
         tri  = new Triangle();
 
         sqr = new Square();
+
+        //Before we can do anything with openXR we need to Direct it to the loader.dll?
+        //XR.create("openxr_loader.dll");
+
+        this.program = new XrProgram("JavaOpenGLXR", window);
+
+        this.program.init();
 
         perspective_matrix.setPerspective(45, width/height, 0.1f, 100);
         view_matrix.lookAt(new Vector3f(0, 0, 1f), new Vector3f(0, 0, 0), new Vector3f(0, 1, 0));
@@ -124,6 +138,7 @@ public class Main {
 
         // Terminate GLFW and free the error callback
         glfwTerminate();
+        this.program.destroy();
         return;
     }
 
