@@ -172,6 +172,7 @@ public class Main {
 
             interpolation = (System.currentTimeMillis() + SKIP_TICKS - next_game_tick / (double) SKIP_TICKS);
             drawThings();
+            this.program.XrMainFunction();
         } // Check if the ESC key was pressed or the window was closed
         while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS && glfwWindowShouldClose(window) == false );
     }

@@ -1,5 +1,6 @@
 package LWJGLOpenXRSample.openxr;
 import org.lwjgl.PointerBuffer;
+import org.lwjgl.opengl.GL40;
 import org.lwjgl.openxr.*;
 import LWJGLOpenXRSample.Square;
 import org.lwjgl.system.MemoryStack;
@@ -47,23 +48,23 @@ public class XrProgram {
 
     boolean xr_shutdown = false;
 
-    ArrayList<ArrayList<Integer>> frame_buffers;
+    ArrayList<IntBuffer> frame_buffers = new ArrayList<IntBuffer>();
 
-    public int swapchain_format;
+    public long swapchain_format;
 
-    public int depth_swapchain_format;
+    public long depth_swapchain_format;
 
-    public ArrayList<ArrayList<XrSwapchainImageOpenGLKHR>> images;
+    public ArrayList<XrSwapchainImageOpenGLKHR.Buffer> images = new ArrayList<XrSwapchainImageOpenGLKHR.Buffer>();
 
-    public ArrayList<ArrayList<XrSwapchainImageOpenGLKHR>> depth_images;
+    public ArrayList<XrSwapchainImageOpenGLKHR.Buffer> depth_images = new ArrayList<XrSwapchainImageOpenGLKHR.Buffer>();
 
-    public ArrayList<XrSwapchain> swapchains;
+    public ArrayList<XrSwapchain> swapchains = new ArrayList<XrSwapchain>();;
 
-    public ArrayList<XrSwapchain> depth_swapchains;
+    public ArrayList<XrSwapchain> depth_swapchains = new ArrayList<XrSwapchain>();
 
-    public ArrayList<XrCompositionLayerProjectionView> projection_views;
+    public ArrayList<XrCompositionLayerProjectionView> projection_views = new ArrayList<XrCompositionLayerProjectionView>();
 
-    public ArrayList<XrViewConfigurationView> xr_config_views;
+    public XrViewConfigurationView.Buffer xr_config_views;
 
     boolean depth_supported = false;
 
@@ -105,6 +106,11 @@ public class XrProgram {
         }
 
         if (!this.createViews())
+        {
+            return false;
+        }
+
+        if (!this.beginSession())
         {
             return false;
         }
@@ -297,8 +303,70 @@ public class XrProgram {
             return false;
         }
 
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            IntBuffer view_count = stack.callocInt(1);
 
+            if (!checkXrResult(XR10.xrEnumerateViewConfigurationViews(this.instance, this.system_id, this.view_type, view_count, null)))
+            {
+                System.out.println("Couldn't enumerate View Configuration Views");
+                return false;
+            }
 
+            this.xr_config_views = new XrViewConfigurationView.Buffer(allocateStruct(view_count.get(0), XrViewConfigurationView.SIZEOF, XR10.XR_TYPE_VIEW_CONFIGURATION_VIEW, stack));
+
+            if (!checkXrResult(XR10.xrEnumerateViewConfigurationViews(this.instance, this.system_id, this.view_type, view_count, xr_config_views)))
+            {
+                System.out.println("Couldn't enumerate View Configuration Views data");
+                return false;
+            }
+
+            if (!this.createSwapchains(view_count.get(0)))
+            {
+                System.out.println("Unable to create Swapchains");
+                return false;
+            }
+
+            if (!this.getSwapchainImages())
+            {
+                System.out.println("Unable to populate swapchain images");
+                return false;
+            }
+
+            // Currently this always returns true
+            if (!this.genFrameBuffers())
+            {
+                System.out.println("Unable to gemerate Frame Buffers");
+                return false;
+            }
+
+            for (int i = 0; i < view_count.get(0); i++)
+            {
+                XrCompositionLayerProjectionView projection_view = XrCompositionLayerProjectionView.calloc(stack);
+                projection_view.type(XR10.XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW);
+                projection_view.next(NULL);
+                projection_view.subImage().swapchain(this.swapchains.get(i));
+                projection_view.subImage().imageArrayIndex(0);
+                projection_view.subImage().imageRect().offset().x(0);
+                projection_view.subImage().imageRect().offset().y(0);
+                projection_view.subImage().imageRect().extent().height(this.xr_config_views.get(i).recommendedImageRectHeight());
+                projection_view.subImage().imageRect().extent().width(this.xr_config_views.get(i).recommendedImageRectWidth());
+                this.projection_views.add(projection_view);
+            }
+
+            if (this.depth_swapchain_format != -1)
+            {
+                for (int i = 0; i < view_count.get(0); i++) {
+                    XrCompositionLayerDepthInfoKHR depth_info = XrCompositionLayerDepthInfoKHR.calloc(stack);
+                    depth_info.subImage().swapchain(this.depth_swapchains.get(i));
+                    depth_info.subImage().imageArrayIndex(0);
+                    depth_info.subImage().imageRect().offset().x(0);
+                    depth_info.subImage().imageRect().offset().y(0);
+                    depth_info.subImage().imageRect().extent().height(this.xr_config_views.get(i).recommendedImageRectHeight());
+                    depth_info.subImage().imageRect().extent().width(this.xr_config_views.get(i).recommendedImageRectWidth());
+                }
+            }
+        }
 
         return true;
     }
@@ -343,6 +411,203 @@ public class XrProgram {
         return true;
     }
 
+    public boolean createSwapchains(int view_count)
+    {
+        int format = GL40.GL_SRGB8_ALPHA8;
+
+        if(!checkSwapchainImageSupport(format))
+        {
+            System.out.println("Preferred Swapchain Image Format not Supported");
+            return false;
+        }
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            for (int i = 0; i < view_count; i++) {
+
+                XrSwapchainCreateInfo swapchain_create_info = XrSwapchainCreateInfo.calloc(stack);
+                swapchain_create_info.type(XR10.XR_TYPE_SWAPCHAIN_CREATE_INFO);
+                swapchain_create_info.next(NULL);
+                swapchain_create_info.createFlags(0);
+                swapchain_create_info.usageFlags(XR10.XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR10.XR_SWAPCHAIN_USAGE_SAMPLED_BIT);
+                swapchain_create_info.format(this.swapchain_format);
+                swapchain_create_info.sampleCount(this.xr_config_views.get(i).recommendedSwapchainSampleCount());
+                swapchain_create_info.width(this.xr_config_views.get(i).recommendedImageRectWidth());
+                swapchain_create_info.height(this.xr_config_views.get(i).recommendedImageRectHeight());
+                swapchain_create_info.faceCount(1);
+                swapchain_create_info.arraySize(1);
+                swapchain_create_info.mipCount(1);
+                int width = this.xr_config_views.get(i).recommendedImageRectWidth();
+                PointerBuffer swapchain = stack.callocPointer(1);
+                if (!checkXrResult(XR10.xrCreateSwapchain(this.session, swapchain_create_info, swapchain)))
+                {
+                    System.out.println("Couldn't create Swapchain");
+                    return false;
+                }
+
+                this.swapchains.add(new XrSwapchain(swapchain.get(0), this.session));
+
+                //If supported also create Depth Swapchains
+                if (this.depth_swapchain_format != -1 && this.depth_supported == true)
+                {
+                    XrSwapchainCreateInfo depth_swapchain_create_info = XrSwapchainCreateInfo.calloc(stack);
+                    depth_swapchain_create_info.type(XR10.XR_TYPE_SWAPCHAIN_CREATE_INFO);
+                    depth_swapchain_create_info.next(NULL);
+                    depth_swapchain_create_info.createFlags( 0);
+                    depth_swapchain_create_info.usageFlags(XR10.XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+                    depth_swapchain_create_info.format(this.depth_swapchain_format);
+                    depth_swapchain_create_info.sampleCount(this.xr_config_views.get(i).recommendedSwapchainSampleCount());
+                    depth_swapchain_create_info.width(this.xr_config_views.get(i).recommendedImageRectWidth());
+                    depth_swapchain_create_info.height(this.xr_config_views.get(i).recommendedImageRectHeight());
+                    depth_swapchain_create_info.faceCount(1);
+                    depth_swapchain_create_info.arraySize(1);
+                    depth_swapchain_create_info.mipCount(1);
+
+                    PointerBuffer depth_swapchain = stack.callocPointer(1);
+                    if (!checkXrResult(XR10.xrCreateSwapchain(this.session, depth_swapchain_create_info, depth_swapchain)))
+                    {
+                        System.out.println("Couldn't create depth Swapchain");
+                        return false;
+                    }
+
+                    this.depth_swapchains.add(new XrSwapchain(depth_swapchain.get(0), this.session));
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public boolean checkSwapchainImageSupport(int image_format)
+    {
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            IntBuffer format_count = stack.mallocInt(1);
+            if (!checkXrResult(XR10.xrEnumerateSwapchainFormats(this.session, format_count, null)))
+            {
+                System.out.println("Unable to enumerate Swapchain formats");
+                return false;
+            }
+            LongBuffer formats = stack.callocLong(format_count.get(0));
+
+            if (!checkXrResult(XR10.xrEnumerateSwapchainFormats(this.session, format_count, formats)))
+            {
+                System.out.println("Unable to enumerate Swapchain formats data");
+                return false;
+            }
+            boolean preferred = false;
+            boolean depth_preferred = false;
+
+            int depth_preferred_format = GL40.GL_DEPTH_COMPONENT32F;
+
+            this.swapchain_format = formats.get(0);
+            this.depth_swapchain_format = -1;
+
+            while (formats.hasRemaining())
+            {
+                long format = formats.get();
+                if (format == image_format)
+                {
+                    this.swapchain_format = image_format;
+                    preferred = true;
+                    System.out.println("Preferred Swapchain Image Format Found");
+                }
+                if (format == depth_preferred_format)
+                {
+                    this.depth_swapchain_format = format;
+                    depth_preferred = true;
+                    System.out.println("Preferred Depth Swapchain Image Format Found");
+                }
+            }
+            if (!preferred)
+            {
+                return false;
+            }
+
+            if (depth_preferred)
+            {
+                this.depth_supported = true;
+            }
+        }
+        return true;
+    }
+
+    public boolean getSwapchainImages()
+    {
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            for (int i = 0; i < this.swapchains.size(); i++) {
+                IntBuffer image_count = stack.callocInt(1);
+                if (!checkXrResult(XR10.xrEnumerateSwapchainImages(swapchains.get(i), image_count, null)))
+                {
+                    System.out.println("Unable to enumerate swapchain images");
+                    return false;
+                }
+
+                //Allocate space for new XrSwapchainImage in images
+                this.images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR, stack)));
+
+                if (!checkXrResult(XR10.xrEnumerateSwapchainImages(swapchains.get(i), image_count, XrSwapchainImageBaseHeader.create(this.images.get(i).address(), this.images.get(i).capacity()))))
+                {
+                    System.out.println("Unable to enumerate swapchain images data");
+                    return false;
+                }
+            }
+            if (this.depth_swapchain_format != -1)
+            {
+                for (int i = 0; i < this.depth_swapchains.size(); i++) {
+                    IntBuffer image_count = stack.callocInt(1);
+                    if (!checkXrResult(XR10.xrEnumerateSwapchainImages(depth_swapchains.get(i), image_count, null)))
+                    {
+                        System.out.println("Unable to enumerate swapchain images");
+                        return false;
+                    }
+
+                    //Allocate space for new XrSwapchainImage in images
+                    this.depth_images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR, stack)));
+
+                    if (!checkXrResult(XR10.xrEnumerateSwapchainImages(depth_swapchains.get(i), image_count, XrSwapchainImageBaseHeader.create(this.depth_images.get(i).address(), this.depth_images.get(i).capacity()))))
+                    {
+                        System.out.println("Unable to enumerate depth swapchain images data");
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    public boolean genFrameBuffers()
+    {
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            int view_count = this.xr_config_views.capacity();
+            for (int i = 0; i < view_count; i++)
+            {
+                //this.frame_buffers.get(i) = new ArrayList<Integer>()
+                IntBuffer frames = stack.mallocInt(this.images.get(i).capacity());
+                this.frame_buffers.add(frames);
+                GL40.glGenFramebuffers(frames);
+            }
+        }
+        return true;
+    }
+
+    public boolean beginSession()
+    {
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            XrSessionBeginInfo session_begin_info = XrSessionBeginInfo.calloc(stack);
+            session_begin_info.type(XR10.XR_TYPE_SESSION_BEGIN_INFO);
+            session_begin_info.primaryViewConfigurationType(this.view_type);
+
+            if (!checkXrResult(XR10.xrBeginSession(this.session, session_begin_info)))
+            {
+                System.out.println("Unable to begin sesssion");
+                return false;
+            }
+        }
+        return true;
+    }
+
     public ByteBuffer allocateStruct(int capacity, int struct_size, int struct_type, MemoryStack stack)
     {
         ByteBuffer struct_buffer = stack.malloc(capacity * struct_size);
@@ -366,8 +631,89 @@ public class XrProgram {
         return true;
     }
 
+    public boolean XrMainFunction()
+    {
+        this.checkEvents();
+        if (this.xr_shutdown == true)
+        {
+            return false;
+        }
+
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            XrFrameState frame_state = XrFrameState.calloc(stack);
+            frame_state.type(XR10.XR_TYPE_FRAME_STATE);
+            frame_state.next(NULL);
+
+            XrFrameWaitInfo frame_wait_info = XrFrameWaitInfo.calloc(stack);
+            frame_wait_info.next(NULL);
+            frame_wait_info.type(XR10.XR_TYPE_FRAME_WAIT_INFO);
+
+            if (!this.checkXrResult(XR10.xrWaitFrame(this.session, frame_wait_info, frame_state)))
+            {
+                System.out.println("unable");
+            }
+
+        }
+
+        return true;
+    }
+
+    public boolean renderFrame()
+    {
+        return true;
+    }
+
+    public boolean checkEvents()
+    {
+        try (MemoryStack stack = MemoryStack.stackPush())
+        {
+            XrEventDataBuffer runtime_event = XrEventDataBuffer.calloc(stack);
+            runtime_event.type(XR10.XR_TYPE_EVENT_DATA_BUFFER);
+            runtime_event.next(NULL);
+            int result = XR10.xrPollEvent(this.instance, runtime_event);
+            while (result == XR10.XR_SUCCESS)
+            {
+                switch (runtime_event.type())
+                {
+                    case(XR10.XR_TYPE_EVENT_DATA_EVENTS_LOST):
+                        break;
+                    case(XR10.XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING):
+                        this.xr_shutdown = true;
+                        break;
+                    case(XR10.XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED):
+                        XrEventDataBaseHeader base = XrEventDataBaseHeader.create(runtime_event.address());
+                        this.state = XrEventDataSessionStateChanged.create(base).state();
+                        if (this.state == XR10.XR_SESSION_STATE_STOPPING)
+                        {
+                            this.xr_shutdown = true;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+
+                runtime_event.clear();
+                runtime_event.type(XR10.XR_TYPE_EVENT_DATA_BUFFER);
+                runtime_event.next(NULL);
+                result = XR10.xrPollEvent(this.instance, runtime_event);
+            }
+        }
+        return true;
+    }
+
     public void destroy()
     {
+        for (int i = 0; i < xr_config_views.capacity(); i++)
+        {
+            XR10.xrDestroySwapchain(this.swapchains.get(i));
+        }
+
+        for (int i = 0; i < xr_config_views.capacity(); i++)
+        {
+            XR10.xrDestroySwapchain(this.depth_swapchains.get(i));
+        }
+
         XR10.xrDestroySpace(this.reference_space);
 
         XR10.xrDestroySession(this.session);
