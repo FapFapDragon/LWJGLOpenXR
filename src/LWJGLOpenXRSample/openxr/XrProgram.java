@@ -1,4 +1,8 @@
 package LWJGLOpenXRSample.openxr;
+
+import LWJGLOpenXRSample.Main;
+import LWJGLOpenXRSample.Square;
+import org.joml.Matrix4f;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opengl.GL40;
 import org.lwjgl.openxr.*;
@@ -62,7 +66,7 @@ public class XrProgram {
 
     public ArrayList<XrSwapchain> depth_swapchains = new ArrayList<XrSwapchain>();
 
-    public ArrayList<XrCompositionLayerProjectionView> projection_views = new ArrayList<XrCompositionLayerProjectionView>();
+    public XrCompositionLayerProjectionView.Buffer projection_views;
 
     public XrViewConfigurationView.Buffer xr_config_views;
 
@@ -77,6 +81,8 @@ public class XrProgram {
     public String[] optional_extensions = { KHRCompositionLayerDepth.XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME };
 
     public Vector<String> enabled_extensions = new Vector<String>();
+
+    public Square square;
 
     public XrProgram(String application_name, long window)
     {
@@ -340,18 +346,20 @@ public class XrProgram {
                 return false;
             }
 
+            this.projection_views = new XrCompositionLayerProjectionView.Buffer(allocateStruct(view_count.get(0), XrCompositionLayerProjectionView.SIZEOF, XR10.XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW, stack));
+
             for (int i = 0; i < view_count.get(0); i++)
             {
-                XrCompositionLayerProjectionView projection_view = XrCompositionLayerProjectionView.calloc(stack);
-                projection_view.type(XR10.XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW);
-                projection_view.next(NULL);
-                projection_view.subImage().swapchain(this.swapchains.get(i));
-                projection_view.subImage().imageArrayIndex(0);
-                projection_view.subImage().imageRect().offset().x(0);
-                projection_view.subImage().imageRect().offset().y(0);
-                projection_view.subImage().imageRect().extent().height(this.xr_config_views.get(i).recommendedImageRectHeight());
-                projection_view.subImage().imageRect().extent().width(this.xr_config_views.get(i).recommendedImageRectWidth());
-                this.projection_views.add(projection_view);
+
+                //XrCompositionLayerProjectionView projection_view = XrCompositionLayerProjectionView.calloc(stack);
+                this.projection_views.get(i).type(XR10.XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW);
+                this.projection_views.get(i).next(NULL);
+                this.projection_views.get(i).subImage().swapchain(this.swapchains.get(i));
+                this.projection_views.get(i).subImage().imageArrayIndex(0);
+                this.projection_views.get(i).subImage().imageRect().offset().x(0);
+                this.projection_views.get(i).subImage().imageRect().offset().y(0);
+                this.projection_views.get(i).subImage().imageRect().extent().height(this.xr_config_views.get(i).recommendedImageRectHeight());
+                this.projection_views.get(i).subImage().imageRect().extent().width(this.xr_config_views.get(i).recommendedImageRectWidth());
             }
 
             if (this.depth_swapchain_format != -1)
@@ -693,17 +701,152 @@ public class XrProgram {
 
             for (int i = 0; i < view_count_raw; i++)
             {
-                XrMatrix4x4f Projection_Matrix = new XrMatrix4x4f();
+                XrMatrix4x4f Projection_matrix = new XrMatrix4x4f();
+                XrMatrix4x4f.CreateProjectionMatrix(Projection_matrix, XrMatrix4x4f.GraphicsAPI.GRAPHICS_OPENGL, views.get(i).fov(), near_z, far_z);
+                XrMatrix4x4f  view_matrix = new XrMatrix4x4f();
+                XrMatrix4x4f.CreateViewMatrix(view_matrix, views.get(i).pose().position$(), views.get(i).pose().orientation());
 
+                //Wait to aquire swapchain info
+                XrSwapchainImageAcquireInfo swapchain_image_aquire_info = XrSwapchainImageAcquireInfo.calloc(stack);
+                swapchain_image_aquire_info.type(XR10.XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO);
+                swapchain_image_aquire_info.next(NULL);
+
+                IntBuffer index = stack.callocInt(1);
+
+                if (!checkXrResult(XR10.xrAcquireSwapchainImage(this.swapchains.get(i), swapchain_image_aquire_info, index)))
+                {
+                    System.out.println("Unable to aquire swapchain image index");
+                    return false;
+                }
+
+                XrSwapchainImageWaitInfo swapchain_image_wait_info = XrSwapchainImageWaitInfo.calloc(stack);
+                swapchain_image_wait_info.type(XR10.XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO);
+                swapchain_image_wait_info.next(NULL);
+                swapchain_image_wait_info.timeout(1000);
+
+                if (!this.checkXrResult(XR10.xrWaitSwapchainImage(this.swapchains.get(i), swapchain_image_wait_info)))
+                {
+                    System.out.println("Unable to wait for swapchain image");
+                    return false;
+                }
+
+                IntBuffer depth_index =  stack.callocInt(1);
+                depth_index.put( 0,Integer.MAX_VALUE);
+
+                if (this.swapchain_format != -1)
+                {
+                    XrSwapchainImageAcquireInfo depth_swapchain_image_aquire_info = XrSwapchainImageAcquireInfo.calloc(stack);
+                    depth_swapchain_image_aquire_info.type(XR10.XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO);
+                    depth_swapchain_image_aquire_info.next(NULL);
+
+                    if (!this.checkXrResult(XR10.xrAcquireSwapchainImage(this.depth_swapchains.get(i), depth_swapchain_image_aquire_info, depth_index)))
+                    {
+                        System.out.println("Unable to aquire depth swapchain Image Index");
+                        return false;
+                    }
+
+                    XrSwapchainImageWaitInfo depth_swapchain_image_wait_info = XrSwapchainImageWaitInfo.calloc(stack);
+                    depth_swapchain_image_wait_info.type(XR10.XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO);
+                    depth_swapchain_image_wait_info.next(NULL);
+                    depth_swapchain_image_wait_info.timeout(1000);
+                    if (!this.checkXrResult(XR10.xrWaitSwapchainImage(this.depth_swapchains.get(i), depth_swapchain_image_wait_info)))
+                    {
+                        System.out.println("Unable to wait for depth swapchain image");
+                        return false;
+                    }
+                }
+                this.projection_views.get(i).fov( views.get(i).fov());
+                this.projection_views.get(i).pose(views.get(i).pose());
+
+                int depth_image = (this.depth_swapchain_format == -1) ? this.depth_images.get(i).get(depth_index.get(0)).image() : Integer.MAX_VALUE;
+
+                boolean result = renderFrame(this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight(), Projection_matrix, view_matrix, this.frame_buffers.get(i).get(index.get(0)), depth_image, this.images.get(i).get(index.get(0)), frame_state.predictedDisplayTime());
+                if (!result)
+                {
+                    System.out.println("Unable to render Frame");
+                    return false;
+                }
+
+                GL40.glFinish();
+
+                XrSwapchainImageReleaseInfo swapchain_image_release_info = XrSwapchainImageReleaseInfo.calloc(stack);
+                swapchain_image_release_info.type(XR10.XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO);
+                swapchain_image_release_info.next(NULL);
+
+                if (!this.checkXrResult(XR10.xrReleaseSwapchainImage(this.swapchains.get(i), swapchain_image_release_info)))
+                {
+                    System.out.println("Unable to release swapchain Image");
+                    return false;
+                }
+
+                if (this.depth_swapchain_format != -1)
+                {
+                    XrSwapchainImageReleaseInfo depth_swapchain_image_release_info = XrSwapchainImageReleaseInfo.calloc(stack);
+                    depth_swapchain_image_release_info.type(XR10.XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO);
+                    depth_swapchain_image_release_info.next(NULL);
+
+                    if (!this.checkXrResult(XR10.xrReleaseSwapchainImage(this.depth_swapchains.get(i), depth_swapchain_image_release_info)))
+                    {
+                        System.out.println("Unable to release depth swapchain Image");
+                        return false;
+                    }
+                }
             }
+            XrCompositionLayerProjection projection_layer = XrCompositionLayerProjection.calloc(stack);
+            projection_layer.type(XR10.XR_TYPE_COMPOSITION_LAYER_PROJECTION);
+            projection_layer.next(NULL);
+            projection_layer.layerFlags(0);
+            projection_layer.space(this.reference_space);
+            projection_layer.views(this.projection_views);
 
+            XrCompositionLayerBaseHeader compositionLayers = XrCompositionLayerBaseHeader.create(projection_layer);
+
+            PointerBuffer layers = stack.callocPointer(1);
+
+            layers.put(compositionLayers);
+            XrFrameEndInfo frame_end_info = XrFrameEndInfo.calloc(stack);
+            frame_end_info.type(XR10.XR_TYPE_FRAME_END_INFO);
+            frame_end_info.next(NULL);
+            frame_end_info.displayTime(frame_state.predictedDisplayTime());
+            frame_end_info.environmentBlendMode(XR10.XR_ENVIRONMENT_BLEND_MODE_OPAQUE);
+            frame_end_info.layerCount(1);
+            frame_end_info.layers(layers);
+
+            if (!this.checkXrResult(XR10.xrEndFrame(this.session, frame_end_info)))
+            {
+                System.out.println("Unable to End Frame");
+                return false;
+            }
         }
 
         return true;
     }
 
-    public boolean renderFrame()
+    public boolean renderFrame(int width, int height, XrMatrix4x4f perspective_matrix, XrMatrix4x4f view_matrix, int frame_buffer, int depth_buffer, XrSwapchainImageOpenGLKHR image, long predicted_time)
     {
+        GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, frame_buffer);
+
+        GL40.glViewport(0, 0, width, height);
+        GL40.glScissor(0, 0, width, height);
+
+        //Clear the Frame Buffer
+        GL40.glClear(GL40.GL_COLOR_BUFFER_BIT | GL40.GL_DEPTH_BUFFER_BIT);
+
+        GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_COLOR_ATTACHMENT0, GL40.GL_TEXTURE_2D, image.image(), 0);
+        if (depth_buffer != Integer.MAX_VALUE) {
+            GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_DEPTH_ATTACHMENT, GL40.GL_TEXTURE_2D, depth_buffer, 0);
+        }
+
+        XrMatrix4x4f vp_matrix_xr = new XrMatrix4x4f();
+        XrMatrix4x4f.Multiply(vp_matrix_xr, perspective_matrix, vp_matrix_xr);
+        Matrix4f vp_matrix = new Matrix4f(vp_matrix_xr.m[0], vp_matrix_xr.m[1],vp_matrix_xr.m[2],vp_matrix_xr.m[3],
+                vp_matrix_xr.m[4], vp_matrix_xr.m[5], vp_matrix_xr.m[6], vp_matrix_xr.m[7], vp_matrix_xr.m[8], vp_matrix_xr.m[9],
+                vp_matrix_xr.m[10], vp_matrix_xr.m[11], vp_matrix_xr.m[12], vp_matrix_xr.m[13], vp_matrix_xr.m[14], vp_matrix_xr.m[15]);
+
+        this.square.draw(vp_matrix);
+
+        GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, 0);
+
         return true;
     }
 

@@ -14,7 +14,7 @@ public class XrMatrix4x4f {
 
     }
 
-    public static void XrMatrix4x4f_CreateProjectionMatrix(XrMatrix4x4f result, GraphicsAPI graphicsapi, XrFovf fov, float nearZ, float farZ)
+    public static void CreateProjectionMatrix(XrMatrix4x4f result, GraphicsAPI graphicsapi, XrFovf fov, float nearZ, float farZ)
     {
         float tanLeft  = (float)Math.tan(fov.angleLeft());
         float tanRight = (float)Math.tan(fov.angleRight());
@@ -22,10 +22,10 @@ public class XrMatrix4x4f {
         float tanDown  = (float)Math.tan(fov.angleDown());
         float tanUp    = (float)Math.tan(fov.angleUp());
 
-        XrMatrix4x4f_CreateProjectionMatrix(result, graphicsapi, tanLeft, tanRight, tanUp, tanDown, nearZ, farZ);
+        CreateProjectionMatrix(result, graphicsapi, tanLeft, tanRight, tanUp, tanDown, nearZ, farZ);
     }
 
-    public static void XrMatrix4x4f_CreateProjectionMatrix(XrMatrix4x4f result, GraphicsAPI graphicsapi, float tanAngleLeft,float tanAngleRight,float tanAngleUp,float tanAngleDown, float nearZ, float farZ)
+    public static void CreateProjectionMatrix(XrMatrix4x4f result, GraphicsAPI graphicsapi, float tanAngleLeft,float tanAngleRight,float tanAngleUp,float tanAngleDown, float nearZ, float farZ)
     {
         // Creates a projection matrix based on the specified dimensions.
         // The projection matrix transforms -Z=forward, +Y=up, +X=right to the appropriate clip space for the graphics API.
@@ -93,21 +93,21 @@ public class XrMatrix4x4f {
         }
     }
 
-    public static void XrMatrix4x4f_CreateViewMatrix(XrMatrix4x4f result, XrVector3f translation, XrQuaternionf rotation)
+    public static void CreateViewMatrix(XrMatrix4x4f result, XrVector3f translation, XrQuaternionf rotation)
     {
         XrMatrix4x4f rotationMatrix = new XrMatrix4x4f();
-        XrMatrix4x4f_CreateFromQuaternion(rotationMatrix, rotation);
+        CreateFromQuaternion(rotationMatrix, rotation);
 
         XrMatrix4x4f translationMatrix = new XrMatrix4x4f();
-        XrMatrix4x4f_CreateTranslation(translationMatrix, translation.x(), translation.y(), translation.z());
+        CreateTranslation(translationMatrix, translation.x(), translation.y(), translation.z());
 
         XrMatrix4x4f viewMatrix = new XrMatrix4x4f();
-        XrMatrix4x4f_Multiply(viewMatrix, translationMatrix, rotationMatrix);
+        Multiply(viewMatrix, translationMatrix, rotationMatrix);
 
-        XrMatrix4x4f_Invert(result, viewMatrix);
+        Invert(result, viewMatrix);
     }
 
-    public static void XrMatrix4x4f_CreateFromQuaternion(XrMatrix4x4f result, XrQuaternionf quat)
+    public static void CreateFromQuaternion(XrMatrix4x4f result, XrQuaternionf quat)
     {
          float x2 = quat.x() + quat.x();
          float y2 = quat.y() + quat.y();
@@ -145,7 +145,7 @@ public class XrMatrix4x4f {
         result.m[15] = 1.0f;
     }
 
-    public static void XrMatrix4x4f_CreateTranslation(XrMatrix4x4f result, float x, float y, float z)
+    public static void CreateTranslation(XrMatrix4x4f result, float x, float y, float z)
     {
         result.m[0] = 1.0f;
         result.m[1] = 0.0f;
@@ -165,7 +165,7 @@ public class XrMatrix4x4f {
         result.m[15] = 1.0f;
     }
 
-    public static void XrMatrix4x4f_Multiply(XrMatrix4x4f result, XrMatrix4x4f a, XrMatrix4x4f b)
+    public static void Multiply(XrMatrix4x4f result, XrMatrix4x4f a, XrMatrix4x4f b)
     {
         result.m[0] = a.m[0] * b.m[0] + a.m[4] * b.m[1] + a.m[8] * b.m[2] + a.m[12] * b.m[3];
         result.m[1] = a.m[1] * b.m[0] + a.m[5] * b.m[1] + a.m[9] * b.m[2] + a.m[13] * b.m[3];
@@ -188,7 +188,7 @@ public class XrMatrix4x4f {
         result.m[15] = a.m[3] * b.m[12] + a.m[7] * b.m[13] + a.m[11] * b.m[14] + a.m[15] * b.m[15];
     }
 
-    public static void XrMatrix4x4f_Invert(XrMatrix4x4f result, XrMatrix4x4f src)
+    public static void Invert(XrMatrix4x4f result, XrMatrix4x4f src)
     {
          float rcpDet =
             1.0f / (src.m[0] * XrMatrix4x4f_Minor(src, 1, 2, 3, 1, 2, 3) - src.m[1] * XrMatrix4x4f_Minor(src, 1, 2, 3, 0, 2, 3) +

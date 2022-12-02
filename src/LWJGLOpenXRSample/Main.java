@@ -117,6 +117,8 @@ public class Main {
 
         this.program.init();
 
+        this.program.square = sqr;
+
         perspective_matrix.setPerspective(45, width/height, 0.1f, 100);
         view_matrix.lookAt(new Vector3f(0, 0, 1f), new Vector3f(0, 0, 0), new Vector3f(0, 1, 0));
         perspective_matrix.mul(view_matrix, vp_matrix);
@@ -172,7 +174,11 @@ public class Main {
 
             interpolation = (System.currentTimeMillis() + SKIP_TICKS - next_game_tick / (double) SKIP_TICKS);
             drawThings();
-            this.program.XrMainFunction();
+            boolean result = this.program.XrMainFunction();
+            if (result == false)
+            {
+                break;
+            }
         } // Check if the ESC key was pressed or the window was closed
         while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS && glfwWindowShouldClose(window) == false );
     }
