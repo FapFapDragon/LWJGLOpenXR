@@ -651,7 +651,50 @@ public class XrProgram {
 
             if (!this.checkXrResult(XR10.xrWaitFrame(this.session, frame_wait_info, frame_state)))
             {
-                System.out.println("unable");
+                System.out.println("unable to wait on frame, that probably shouldn't happen");
+                return false;
+            }
+
+            XrViewLocateInfo view_locate_info = XrViewLocateInfo.calloc(stack);
+            view_locate_info.type(XR10.XR_TYPE_VIEW_LOCATE_INFO);
+            view_locate_info.next(NULL);
+            view_locate_info.viewConfigurationType(this.view_type);
+            view_locate_info.displayTime(frame_state.predictedDisplayTime());
+            view_locate_info.space(this.reference_space);
+
+            int view_count_raw = this.xr_config_views.capacity();
+            XrView.Buffer views = new XrView.Buffer(stack.calloc(view_count_raw * XrView.SIZEOF));// new XrView.Buffer(allocateStruct(view_count, XrView.SIZEOF, XR10.XR_TYPE_VIEW, stack));
+
+            for (int i = 0; i < view_count_raw; i++)
+            {
+                views.get(i).type(XR10.XR_TYPE_VIEW);
+                views.get(i).next(NULL);
+            }
+
+            XrViewState view_state = XrViewState.calloc(stack);
+            view_state.type(XR10.XR_TYPE_VIEW_STATE);
+            view_state.next(NULL);
+            IntBuffer view_count = stack.callocInt(1);
+            if (!this.checkXrResult(XR10.xrLocateViews(this.session, view_locate_info, view_state, view_count, views)))
+            {
+                System.out.println("Unable To locate views");
+                return false;
+            }
+
+            XrFrameBeginInfo frame_begin_info = XrFrameBeginInfo.calloc(stack);
+            frame_begin_info.type(XR10.XR_TYPE_FRAME_BEGIN_INFO);
+            frame_begin_info.next(NULL);
+
+            if (!this.checkXrResult(XR10.xrBeginFrame(this.session, frame_begin_info)))
+            {
+                System.out.println("Unable To begin frame");
+                return false;
+            }
+
+            for (int i = 0; i < view_count_raw; i++)
+            {
+                XrMatrix4x4f Projection_Matrix = new XrMatrix4x4f();
+
             }
 
         }
