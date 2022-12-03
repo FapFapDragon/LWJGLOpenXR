@@ -6,7 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 //OpenGL Stuff
-import static org.lwjgl.opengl.GL31C.*;
+//import static org.lwjgl.opengl.GL31C.*;
+import org.lwjgl.opengl.GL40;
 public class Shader {
 
     private int program;
@@ -43,14 +44,14 @@ public class Shader {
     */
     public boolean compileShader(int shader, String shader_text)
     {
-        glShaderSource(shader, shader_text);
-        glCompileShader(shader);
+        GL40.glShaderSource(shader, shader_text);
+        GL40.glCompileShader(shader);
 
-        int result = glGetShaderi(shader, GL_COMPILE_STATUS);
+        int result = GL40.glGetShaderi(shader, GL40.GL_COMPILE_STATUS);
 
         if (result == 0)
         {
-            String info = glGetShaderInfoLog(shader);
+            String info = GL40.glGetShaderInfoLog(shader);
             System.err.println(info);
             return false;
         }
@@ -65,22 +66,22 @@ public class Shader {
     */
     private void buildProgram(int VertShaderID, int FragShaderID)
     {
-        this.program = glCreateProgram();
-        glAttachShader(this.program, VertShaderID);
-        glAttachShader(this.program, FragShaderID);
-        glLinkProgram(this.program);
+        this.program = GL40.glCreateProgram();
+        GL40.glAttachShader(this.program, VertShaderID);
+        GL40.glAttachShader(this.program, FragShaderID);
+        GL40.glLinkProgram(this.program);
 
-        int result = glGetProgrami(this.program, GL_LINK_STATUS);
+        int result = GL40.glGetProgrami(this.program, GL40.GL_LINK_STATUS);
         if (result == 0)
         {
-            String info = glGetProgramInfoLog(this.program);
+            String info = GL40.glGetProgramInfoLog(this.program);
             throw new RuntimeException(info);
         }
-        glDetachShader(this.program, VertShaderID);
-        glDetachShader(this.program, FragShaderID);
+        GL40.glDetachShader(this.program, VertShaderID);
+        GL40.glDetachShader(this.program, FragShaderID);
 
-        glDeleteShader(VertShaderID);
-        glDeleteShader(FragShaderID);
+        GL40.glDeleteShader(VertShaderID);
+        GL40.glDeleteShader(FragShaderID);
 
     }
 
@@ -102,8 +103,8 @@ public class Shader {
     */
     public Shader(String vertex_path,String fragment_path) throws IOException, RuntimeException
     {
-        int VertShaderID = glCreateShader(GL_VERTEX_SHADER);
-        int FragShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+        int VertShaderID = GL40.glCreateShader(GL40.GL_VERTEX_SHADER);
+        int FragShaderID = GL40.glCreateShader(GL40.GL_FRAGMENT_SHADER);
 
         String vert = loadShaderText(vertex_path);
         String frag = loadShaderText(fragment_path);
@@ -122,8 +123,8 @@ public class Shader {
     */
     public Shader(String vertex_path,String fragment_path, boolean default_shader) throws IOException, RuntimeException
     {
-        int VertShaderID = glCreateShader(GL_VERTEX_SHADER);
-        int FragShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+        int VertShaderID = GL40.glCreateShader(GL40.GL_VERTEX_SHADER);
+        int FragShaderID = GL40.glCreateShader(GL40.GL_FRAGMENT_SHADER);
 
         String vert = loadShaderText(vertex_path);
         String frag = loadShaderText(fragment_path);

@@ -7,7 +7,7 @@ import org.lwjgl.opengl.ARBVertexArrayObject;
 import org.lwjgl.opengl.ARBVertexBufferObject;
 import org.lwjgl.system.MemoryStack;
 
-import static org.lwjgl.opengl.GL31C.*;
+import org.lwjgl.opengl.GL40;
 
 public class Square {
 
@@ -87,7 +87,7 @@ public class Square {
         initVAO();
         initVBO();
         this.shader = Shader.default_program;
-        this.mvp_location = glGetUniformLocation(this.shader.getProgram(), "mvp");
+        this.mvp_location = GL40.glGetUniformLocation(this.shader.getProgram(), "mvp");
 
         //Create the model matrix
         model_matrix = new Matrix4f().translationRotateScale(position, rotation, scale);
@@ -130,17 +130,16 @@ public class Square {
 
         //Pass MVP matrix to the LWJGLOpenXRSample.Shader
         try( MemoryStack stack = MemoryStack.stackPush()) {
-            glUniformMatrix4fv(this.mvp_location, false, mvp.get(stack.mallocFloat(16)));
-
+            GL40.glUniformMatrix4fv(this.mvp_location, false, mvp.get(stack.mallocFloat(16)));
         }
 
         //Draw the LWJGLOpenXRSample.Square
-        glUseProgram(shader.getProgram());
+        GL40.glUseProgram(shader.getProgram());
         ARBVertexArrayObject.glBindVertexArray(vao);
         ARBVertexBufferObject.glBindBufferARB(ARBVertexBufferObject.GL_ARRAY_BUFFER_ARB, vbo);
-        glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-        glEnableVertexAttribArray(0);
-        glDrawArrays(GL_TRIANGLES, 0, 12*3);
-        glDisableVertexAttribArray(0);
+        GL40.glVertexAttribPointer(0, 3, GL40.GL_FLOAT, false, 0, 0);
+        GL40.glEnableVertexAttribArray(0);
+        GL40.glDrawArrays(GL40.GL_TRIANGLES, 0, 12*3);
+        GL40.glDisableVertexAttribArray(0);
     }
 }

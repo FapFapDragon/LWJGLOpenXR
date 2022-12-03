@@ -156,8 +156,8 @@ public class Main {
         int loops;
 
         // Set the clear color
-        glClearColor(0f, 0.0f, 0.0f, 0.0f);
-        glEnable(GL_CULL_FACE);
+        GL40.glClearColor(0f, 0.0f, 1.0f, 0.0f);
+        GL40.glEnable(GL_CULL_FACE);
         // Ensure we can capture the escape key being pressed below
         glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
@@ -173,9 +173,11 @@ public class Main {
             } while (System.currentTimeMillis() > next_game_tick && loops < MAX_FRAMESKIP);
 
             interpolation = (System.currentTimeMillis() + SKIP_TICKS - next_game_tick / (double) SKIP_TICKS);
+
+
             drawThings();
             boolean result = this.program.XrMainFunction();
-            if (result == false)
+            if (!result)
             {
                 break;
             }
@@ -191,7 +193,7 @@ public class Main {
     private void drawThings()
     {
         // Clear the screen. It's not mentioned before Tutorial 02, but it can cause flickering, so it's there nonetheless.
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL40.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //tri.draw(vp_matrix);
         sqr.draw(vp_matrix);
@@ -237,21 +239,23 @@ public class Main {
 
     private void checkMouse()
     {
-        double[] xpos = new double[2];
-        double[] ypos = new double[2];
 
-        glfwGetCursorPos(window, xpos, ypos);
-        glfwSetCursorPos(window, width/2, height/2);
-        horizontalAngle += mouseSpeed * (width/2 - xpos[0] );
-        verticalAngle   += mouseSpeed *  (height/2 - ypos[0] );
+            double[] xpos = new double[2];
+            double[] ypos = new double[2];
 
-        direction = new Vector3f( (float) (Math.cos(verticalAngle) * Math.sin(horizontalAngle)), (float) Math.sin(verticalAngle) , (float) (Math.cos(verticalAngle) * Math.cos(horizontalAngle)));
+            glfwGetCursorPos(window, xpos, ypos);
+            glfwSetCursorPos(window, width / 2, height / 2);
+            horizontalAngle += mouseSpeed * (width / 2 - xpos[0]);
+            verticalAngle += mouseSpeed * (height / 2 - ypos[0]);
 
-        right = new Vector3f((float)Math.sin(horizontalAngle - 3.14/2.0f) , 0, (float)Math.cos(horizontalAngle - 3.14/2.0f));
+            direction = new Vector3f((float) (Math.cos(verticalAngle) * Math.sin(horizontalAngle)), (float) Math.sin(verticalAngle), (float) (Math.cos(verticalAngle) * Math.cos(horizontalAngle)));
 
-        right.cross(direction, up);
+            right = new Vector3f((float) Math.sin(horizontalAngle - 3.14 / 2.0f), 0, (float) Math.cos(horizontalAngle - 3.14 / 2.0f));
 
-        calculateViewProjection();
+            right.cross(direction, up);
+
+            calculateViewProjection();
+
     }
 
 

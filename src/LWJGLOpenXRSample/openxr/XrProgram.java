@@ -4,10 +4,15 @@ import LWJGLOpenXRSample.Main;
 import LWJGLOpenXRSample.Square;
 import org.joml.Matrix4f;
 import org.lwjgl.PointerBuffer;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL40;
 import org.lwjgl.openxr.*;
 import LWJGLOpenXRSample.Square;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
+
+import static org.lwjgl.glfw.GLFW.glfwPollEvents;
+import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import org.lwjgl.glfw.*;
 
@@ -15,6 +20,7 @@ import org.lwjgl.glfw.*;
 import org.lwjgl.system.Pointer;
 import org.lwjgl.system.windows.RECT;
 import org.lwjgl.system.windows.User32;
+
 
 import java.awt.*;
 import java.io.Console;
@@ -52,7 +58,7 @@ public class XrProgram {
 
     boolean xr_shutdown = false;
 
-    ArrayList<IntBuffer> frame_buffers = new ArrayList<IntBuffer>();
+    ArrayList<ArrayList<Integer>> frame_buffers = new ArrayList<ArrayList<Integer>>();
 
     public long swapchain_format;
 
@@ -94,6 +100,8 @@ public class XrProgram {
 
     public boolean init()
     {
+        GL.createCapabilities();
+
         if (!this.createInstance())
         {
 
@@ -319,7 +327,7 @@ public class XrProgram {
                 return false;
             }
 
-            this.xr_config_views = new XrViewConfigurationView.Buffer(allocateStruct(view_count.get(0), XrViewConfigurationView.SIZEOF, XR10.XR_TYPE_VIEW_CONFIGURATION_VIEW, stack));
+            this.xr_config_views = new XrViewConfigurationView.Buffer(allocateStruct(view_count.get(0), XrViewConfigurationView.SIZEOF, XR10.XR_TYPE_VIEW_CONFIGURATION_VIEW));
 
             if (!checkXrResult(XR10.xrEnumerateViewConfigurationViews(this.instance, this.system_id, this.view_type, view_count, xr_config_views)))
             {
@@ -346,7 +354,7 @@ public class XrProgram {
                 return false;
             }
 
-            this.projection_views = new XrCompositionLayerProjectionView.Buffer(allocateStruct(view_count.get(0), XrCompositionLayerProjectionView.SIZEOF, XR10.XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW, stack));
+            this.projection_views = new XrCompositionLayerProjectionView.Buffer(allocateStruct(view_count.get(0), XrCompositionLayerProjectionView.SIZEOF, XR10.XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW));
 
             for (int i = 0; i < view_count.get(0); i++)
             {
@@ -365,13 +373,14 @@ public class XrProgram {
             if (this.depth_swapchain_format != -1)
             {
                 for (int i = 0; i < view_count.get(0); i++) {
-                    XrCompositionLayerDepthInfoKHR depth_info = XrCompositionLayerDepthInfoKHR.calloc(stack);
+                    XrCompositionLayerDepthInfoKHR depth_info = XrCompositionLayerDepthInfoKHR.malloc();
                     depth_info.subImage().swapchain(this.depth_swapchains.get(i));
                     depth_info.subImage().imageArrayIndex(0);
                     depth_info.subImage().imageRect().offset().x(0);
                     depth_info.subImage().imageRect().offset().y(0);
                     depth_info.subImage().imageRect().extent().height(this.xr_config_views.get(i).recommendedImageRectHeight());
                     depth_info.subImage().imageRect().extent().width(this.xr_config_views.get(i).recommendedImageRectWidth());
+                    this.projection_views.get(i).next(depth_info);
                 }
             }
         }
@@ -551,7 +560,7 @@ public class XrProgram {
                 }
 
                 //Allocate space for new XrSwapchainImage in images
-                this.images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR, stack)));
+                this.images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR)));
 
                 if (!checkXrResult(XR10.xrEnumerateSwapchainImages(swapchains.get(i), image_count, XrSwapchainImageBaseHeader.create(this.images.get(i).address(), this.images.get(i).capacity()))))
                 {
@@ -570,7 +579,7 @@ public class XrProgram {
                     }
 
                     //Allocate space for new XrSwapchainImage in images
-                    this.depth_images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR, stack)));
+                    this.depth_images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR)));
 
                     if (!checkXrResult(XR10.xrEnumerateSwapchainImages(depth_swapchains.get(i), image_count, XrSwapchainImageBaseHeader.create(this.depth_images.get(i).address(), this.depth_images.get(i).capacity()))))
                     {
@@ -591,9 +600,17 @@ public class XrProgram {
             for (int i = 0; i < view_count; i++)
             {
                 //this.frame_buffers.get(i) = new ArrayList<Integer>()
+                ArrayList<Integer> buffers = new ArrayList<Integer>();
+
                 IntBuffer frames = stack.mallocInt(this.images.get(i).capacity());
-                this.frame_buffers.add(frames);
+                //this.frame_buffers.add(frames);
+
                 GL40.glGenFramebuffers(frames);
+                while (frames.hasRemaining())
+                {
+                    buffers.add(frames.get());
+                }
+                this.frame_buffers.add(buffers);
             }
         }
         return true;
@@ -628,6 +645,20 @@ public class XrProgram {
         return struct_buffer;
     }
 
+    // Allocates memory outside of stack
+    public ByteBuffer allocateStruct(int capacity, int struct_size, int struct_type)
+    {
+        //ByteBuffer struct_buffer = stack.malloc(capacity * struct_size);
+        ByteBuffer struct_buffer = MemoryUtil.memAlloc(capacity * struct_size);
+        for (int i = 0; i < capacity; i++)
+        {
+            struct_buffer.position(i * struct_size);
+            struct_buffer.putInt(struct_type);
+        }
+        struct_buffer.rewind();
+        return struct_buffer;
+    }
+
     public boolean checkXrResult(int XR_RESULT)
     {
 
@@ -641,12 +672,15 @@ public class XrProgram {
 
     public boolean XrMainFunction()
     {
+        int width2 = this.xr_config_views.get(0).recommendedImageRectWidth();
+
         this.checkEvents();
+
         if (this.xr_shutdown == true)
         {
             return false;
         }
-
+        int width = this.xr_config_views.get(0).recommendedImageRectWidth();
         try (MemoryStack stack = MemoryStack.stackPush())
         {
             XrFrameState frame_state = XrFrameState.calloc(stack);
@@ -758,9 +792,9 @@ public class XrProgram {
                 this.projection_views.get(i).fov( views.get(i).fov());
                 this.projection_views.get(i).pose(views.get(i).pose());
 
-                int depth_image = (this.depth_swapchain_format == -1) ? this.depth_images.get(i).get(depth_index.get(0)).image() : Integer.MAX_VALUE;
-
-                boolean result = renderFrame(this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight(), Projection_matrix, view_matrix, this.frame_buffers.get(i).get(index.get(0)), depth_image, this.images.get(i).get(index.get(0)), frame_state.predictedDisplayTime());
+                int depth_image = (this.depth_swapchain_format != -1) ? this.depth_images.get(i).get(depth_index.get(0)).image() : Integer.MAX_VALUE;
+                int width3 = this.xr_config_views.get(0).recommendedImageRectWidth();
+                boolean result = renderFrame(this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight(), Projection_matrix, view_matrix, frame_buffers.get(i).get(index.get(0)), depth_image, this.images.get(i).get(index.get(0)), frame_state.predictedDisplayTime());
                 if (!result)
                 {
                     System.out.println("Unable to render Frame");
@@ -825,7 +859,7 @@ public class XrProgram {
     public boolean renderFrame(int width, int height, XrMatrix4x4f perspective_matrix, XrMatrix4x4f view_matrix, int frame_buffer, int depth_buffer, XrSwapchainImageOpenGLKHR image, long predicted_time)
     {
         GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, frame_buffer);
-
+        GL40.glClearColor(0, 0, 1, 0);
         GL40.glViewport(0, 0, width, height);
         GL40.glScissor(0, 0, width, height);
 
@@ -833,18 +867,19 @@ public class XrProgram {
         GL40.glClear(GL40.GL_COLOR_BUFFER_BIT | GL40.GL_DEPTH_BUFFER_BIT);
 
         GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_COLOR_ATTACHMENT0, GL40.GL_TEXTURE_2D, image.image(), 0);
-        if (depth_buffer != Integer.MAX_VALUE) {
-            GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_DEPTH_ATTACHMENT, GL40.GL_TEXTURE_2D, depth_buffer, 0);
-        }
+        //if (depth_buffer != Integer.MAX_VALUE) {
+         //   GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_DEPTH_ATTACHMENT, GL40.GL_TEXTURE_2D, depth_buffer, 0);
+        //}
 
         XrMatrix4x4f vp_matrix_xr = new XrMatrix4x4f();
-        XrMatrix4x4f.Multiply(vp_matrix_xr, perspective_matrix, vp_matrix_xr);
+        XrMatrix4x4f.Multiply(vp_matrix_xr, perspective_matrix, view_matrix);
         Matrix4f vp_matrix = new Matrix4f(vp_matrix_xr.m[0], vp_matrix_xr.m[1],vp_matrix_xr.m[2],vp_matrix_xr.m[3],
                 vp_matrix_xr.m[4], vp_matrix_xr.m[5], vp_matrix_xr.m[6], vp_matrix_xr.m[7], vp_matrix_xr.m[8], vp_matrix_xr.m[9],
                 vp_matrix_xr.m[10], vp_matrix_xr.m[11], vp_matrix_xr.m[12], vp_matrix_xr.m[13], vp_matrix_xr.m[14], vp_matrix_xr.m[15]);
 
         this.square.draw(vp_matrix);
-
+        glfwSwapBuffers(window);
+        glfwPollEvents();
         GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, 0);
 
         return true;
@@ -868,18 +903,11 @@ public class XrProgram {
                         this.xr_shutdown = true;
                         break;
                     case(XR10.XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED):
-                        XrEventDataBaseHeader base = XrEventDataBaseHeader.create(runtime_event.address());
-                        this.state = XrEventDataSessionStateChanged.create(base).state();
-                        if (this.state == XR10.XR_SESSION_STATE_STOPPING)
-                        {
-                            this.xr_shutdown = true;
-                        }
                         break;
                     default:
                         break;
                 }
 
-                runtime_event.clear();
                 runtime_event.type(XR10.XR_TYPE_EVENT_DATA_BUFFER);
                 runtime_event.next(NULL);
                 result = XR10.xrPollEvent(this.instance, runtime_event);
