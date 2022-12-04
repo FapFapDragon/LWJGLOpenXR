@@ -64,7 +64,9 @@ public class XrProgram {
 
     public long depth_swapchain_format;
 
-    public ArrayList<XrSwapchainImageOpenGLKHR.Buffer> images = new ArrayList<XrSwapchainImageOpenGLKHR.Buffer>();
+    //public ArrayList<XrSwapchainImageOpenGLKHR.Buffer> images = new ArrayList<XrSwapchainImageOpenGLKHR.Buffer>();
+
+    public ArrayList<ArrayList<Integer>> images = new ArrayList<ArrayList<Integer>>();
 
     public ArrayList<XrSwapchainImageOpenGLKHR.Buffer> depth_images = new ArrayList<XrSwapchainImageOpenGLKHR.Buffer>();
 
@@ -560,13 +562,20 @@ public class XrProgram {
                 }
 
                 //Allocate space for new XrSwapchainImage in images
-                this.images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR)));
-
-                if (!checkXrResult(XR10.xrEnumerateSwapchainImages(swapchains.get(i), image_count, XrSwapchainImageBaseHeader.create(this.images.get(i).address(), this.images.get(i).capacity()))))
+                //this.images.add(new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR)));
+                ArrayList<Integer> image_array = new ArrayList<Integer>();
+                XrSwapchainImageOpenGLKHR.Buffer swapchain_image_buffer = new XrSwapchainImageOpenGLKHR.Buffer(allocateStruct(image_count.get(0), XrSwapchainImageOpenGLKHR.SIZEOF, KHROpenGLEnable.XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR, stack));
+                if (!checkXrResult(XR10.xrEnumerateSwapchainImages(swapchains.get(i), image_count, XrSwapchainImageBaseHeader.create(swapchain_image_buffer.address(), swapchain_image_buffer.capacity()))))
                 {
                     System.out.println("Unable to enumerate swapchain images data");
                     return false;
                 }
+
+                for (int j = 0; j < image_count.get(0); j++)
+                {
+                    image_array.add(swapchain_image_buffer.get(j).image());
+                }
+                this.images.add(image_array);
             }
             if (this.depth_swapchain_format != -1)
             {
@@ -602,7 +611,7 @@ public class XrProgram {
                 //this.frame_buffers.get(i) = new ArrayList<Integer>()
                 ArrayList<Integer> buffers = new ArrayList<Integer>();
 
-                IntBuffer frames = stack.mallocInt(this.images.get(i).capacity());
+                IntBuffer frames = stack.mallocInt(this.images.get(i).size());
                 //this.frame_buffers.add(frames);
 
                 GL40.glGenFramebuffers(frames);
@@ -672,15 +681,12 @@ public class XrProgram {
 
     public boolean XrMainFunction()
     {
-        int width2 = this.xr_config_views.get(0).recommendedImageRectWidth();
-
         this.checkEvents();
 
         if (this.xr_shutdown == true)
         {
             return false;
         }
-        int width = this.xr_config_views.get(0).recommendedImageRectWidth();
         try (MemoryStack stack = MemoryStack.stackPush())
         {
             XrFrameState frame_state = XrFrameState.calloc(stack);
@@ -767,7 +773,7 @@ public class XrProgram {
                 IntBuffer depth_index =  stack.callocInt(1);
                 depth_index.put( 0,Integer.MAX_VALUE);
 
-                if (this.swapchain_format != -1)
+                if (this.depth_swapchain_format != -1)
                 {
                     XrSwapchainImageAcquireInfo depth_swapchain_image_aquire_info = XrSwapchainImageAcquireInfo.calloc(stack);
                     depth_swapchain_image_aquire_info.type(XR10.XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO);
@@ -794,12 +800,36 @@ public class XrProgram {
 
                 int depth_image = (this.depth_swapchain_format != -1) ? this.depth_images.get(i).get(depth_index.get(0)).image() : Integer.MAX_VALUE;
                 int width3 = this.xr_config_views.get(0).recommendedImageRectWidth();
-                boolean result = renderFrame(this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight(), Projection_matrix, view_matrix, frame_buffers.get(i).get(index.get(0)), depth_image, this.images.get(i).get(index.get(0)), frame_state.predictedDisplayTime());
+
+                /*boolean result = renderFrame(this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight(), Projection_matrix, view_matrix, frame_buffers.get(i).get(index.get(0)), depth_image, this.images.get(i).get(index.get(0)), frame_state.predictedDisplayTime());
                 if (!result)
                 {
                     System.out.println("Unable to render Frame");
                     return false;
-                }
+                }*/
+
+                GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, this.frame_buffers.get(i).get(index.get(0)));
+                GL40.glClearColor(0, 0, 1, 0);
+                GL40.glViewport(0, 0, this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight());
+                GL40.glScissor(0, 0, this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight());
+
+                //Clear the Frame Buffer
+                GL40.glClear(GL40.GL_COLOR_BUFFER_BIT | GL40.GL_DEPTH_BUFFER_BIT);
+
+                GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_COLOR_ATTACHMENT0, GL40.GL_TEXTURE_2D, this.images.get(i).get(index.get(0)), 0);
+                //if (depth_buffer != Integer.MAX_VALUE) {
+                //   GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_DEPTH_ATTACHMENT, GL40.GL_TEXTURE_2D, depth_buffer, 0);
+                //}
+
+                XrMatrix4x4f vp_matrix_xr = new XrMatrix4x4f();
+                XrMatrix4x4f.Multiply(vp_matrix_xr, Projection_matrix, view_matrix);
+                Matrix4f vp_matrix = new Matrix4f(vp_matrix_xr.m[0], vp_matrix_xr.m[1],vp_matrix_xr.m[2],vp_matrix_xr.m[3],
+                        vp_matrix_xr.m[4], vp_matrix_xr.m[5], vp_matrix_xr.m[6], vp_matrix_xr.m[7], vp_matrix_xr.m[8], vp_matrix_xr.m[9],
+                        vp_matrix_xr.m[10], vp_matrix_xr.m[11], vp_matrix_xr.m[12], vp_matrix_xr.m[13], vp_matrix_xr.m[14], vp_matrix_xr.m[15]);
+
+                this.square.draw(vp_matrix);
+                GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, 0);
+
 
                 GL40.glFinish();
 
