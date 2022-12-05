@@ -799,37 +799,13 @@ public class XrProgram {
                 this.projection_views.get(i).pose(views.get(i).pose());
 
                 int depth_image = (this.depth_swapchain_format != -1) ? this.depth_images.get(i).get(depth_index.get(0)).image() : Integer.MAX_VALUE;
-                int width3 = this.xr_config_views.get(0).recommendedImageRectWidth();
-
-                /*boolean result = renderFrame(this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight(), Projection_matrix, view_matrix, frame_buffers.get(i).get(index.get(0)), depth_image, this.images.get(i).get(index.get(0)), frame_state.predictedDisplayTime());
+                int image =  this.images.get(i).get(index.get(0));
+                boolean result = renderFrame(this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight(), Projection_matrix, view_matrix, frame_buffers.get(i).get(index.get(0)), depth_image, image, frame_state.predictedDisplayTime());
                 if (!result)
                 {
                     System.out.println("Unable to render Frame");
                     return false;
-                }*/
-
-                GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, this.frame_buffers.get(i).get(index.get(0)));
-                GL40.glClearColor(0, 0, 1, 0);
-                GL40.glViewport(0, 0, this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight());
-                GL40.glScissor(0, 0, this.xr_config_views.get(i).recommendedImageRectWidth(), this.xr_config_views.get(i).recommendedImageRectHeight());
-
-                //Clear the Frame Buffer
-                GL40.glClear(GL40.GL_COLOR_BUFFER_BIT | GL40.GL_DEPTH_BUFFER_BIT);
-
-                GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_COLOR_ATTACHMENT0, GL40.GL_TEXTURE_2D, this.images.get(i).get(index.get(0)), 0);
-                //if (depth_buffer != Integer.MAX_VALUE) {
-                //   GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_DEPTH_ATTACHMENT, GL40.GL_TEXTURE_2D, depth_buffer, 0);
-                //}
-
-                XrMatrix4x4f vp_matrix_xr = new XrMatrix4x4f();
-                XrMatrix4x4f.Multiply(vp_matrix_xr, Projection_matrix, view_matrix);
-                Matrix4f vp_matrix = new Matrix4f(vp_matrix_xr.m[0], vp_matrix_xr.m[1],vp_matrix_xr.m[2],vp_matrix_xr.m[3],
-                        vp_matrix_xr.m[4], vp_matrix_xr.m[5], vp_matrix_xr.m[6], vp_matrix_xr.m[7], vp_matrix_xr.m[8], vp_matrix_xr.m[9],
-                        vp_matrix_xr.m[10], vp_matrix_xr.m[11], vp_matrix_xr.m[12], vp_matrix_xr.m[13], vp_matrix_xr.m[14], vp_matrix_xr.m[15]);
-
-                this.square.draw(vp_matrix);
-                GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, 0);
-
+                }
 
                 GL40.glFinish();
 
@@ -867,7 +843,7 @@ public class XrProgram {
 
             PointerBuffer layers = stack.callocPointer(1);
 
-            layers.put(compositionLayers);
+            layers.put(0, compositionLayers);
             XrFrameEndInfo frame_end_info = XrFrameEndInfo.calloc(stack);
             frame_end_info.type(XR10.XR_TYPE_FRAME_END_INFO);
             frame_end_info.next(NULL);
@@ -886,7 +862,7 @@ public class XrProgram {
         return true;
     }
 
-    public boolean renderFrame(int width, int height, XrMatrix4x4f perspective_matrix, XrMatrix4x4f view_matrix, int frame_buffer, int depth_buffer, XrSwapchainImageOpenGLKHR image, long predicted_time)
+    public boolean renderFrame(int width, int height, XrMatrix4x4f perspective_matrix, XrMatrix4x4f view_matrix, int frame_buffer, int depth_buffer, int image, long predicted_time)
     {
         GL40.glBindFramebuffer(GL40.GL_FRAMEBUFFER, frame_buffer);
         GL40.glClearColor(0, 0, 1, 0);
@@ -896,7 +872,7 @@ public class XrProgram {
         //Clear the Frame Buffer
         GL40.glClear(GL40.GL_COLOR_BUFFER_BIT | GL40.GL_DEPTH_BUFFER_BIT);
 
-        GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_COLOR_ATTACHMENT0, GL40.GL_TEXTURE_2D, image.image(), 0);
+        GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_COLOR_ATTACHMENT0, GL40.GL_TEXTURE_2D, image, 0);
         //if (depth_buffer != Integer.MAX_VALUE) {
          //   GL40.glFramebufferTexture2D(GL40.GL_FRAMEBUFFER, GL40.GL_DEPTH_ATTACHMENT, GL40.GL_TEXTURE_2D, depth_buffer, 0);
         //}
