@@ -1,10 +1,10 @@
+package LWJGLOpenXRSample;
+
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.ARBVertexArrayObject;
 import org.lwjgl.opengl.ARBVertexBufferObject;
-
-import java.nio.FloatBuffer;
 
 import static org.lwjgl.opengl.GL31C.*;
 import org.lwjgl.system.MemoryStack;

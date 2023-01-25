@@ -1,10 +1,14 @@
+package LWJGLOpenXRSample;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.GL;
-import java.math.*;
+import LWJGLOpenXRSample.openxr.XrProgram;
+import org.lwjgl.opengl.GL40;
+import org.lwjgl.openxr.XR;
+
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL31C.*;
@@ -46,12 +50,15 @@ public class Main {
 
     float verticalAngle = 0;
 
+    private XrProgram program;
+
 
     private Input input;
     Shader default_shader;
     Triangle tri;
 
     Square sqr;
+
 
     /*
      init: Initialize GLFW, openGL, And any objects to be drawn
@@ -60,6 +67,7 @@ public class Main {
     */
     private boolean init()
     {
+
         GLFWErrorCallback.createPrint(System.err).set();
 
         if (!glfwInit())
@@ -72,7 +80,6 @@ public class Main {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
-
 
 
         window = glfwCreateWindow(width, height, "JavaOpenGLXR", NULL, NULL);
@@ -90,8 +97,8 @@ public class Main {
 
         GL.createCapabilities();
 
-        String vertShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenGLSample\\src\\shaders\\vert.vsh";
-        String fragShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenGLSample\\src\\shaders\\frag.fg";
+        String vertShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenXR\\src\\LWJGLOpenXRSample\\shaders\\vert.vsh";
+        String fragShaderPath = "C:\\Users\\Troy\\Documents\\GitHub\\LWJGLOpenXR\\src\\LWJGLOpenXRSample\\shaders\\frag.fg";
         try {
             default_shader = new Shader(vertShaderPath, fragShaderPath, true);
         }
@@ -102,6 +109,15 @@ public class Main {
         tri  = new Triangle();
 
         sqr = new Square();
+
+        //Before we can do anything with openXR we need to Direct it to the loader.dll?
+        //XR.create("openxr_loader.dll");
+
+        this.program = new XrProgram("JavaOpenGLXR", window);
+
+        this.program.init();
+
+        this.program.square = sqr;
 
         perspective_matrix.setPerspective(45, width/height, 0.1f, 100);
         view_matrix.lookAt(new Vector3f(0, 0, 1f), new Vector3f(0, 0, 0), new Vector3f(0, 1, 0));
@@ -124,6 +140,7 @@ public class Main {
 
         // Terminate GLFW and free the error callback
         glfwTerminate();
+        this.program.destroy();
         return;
     }
 
@@ -139,8 +156,8 @@ public class Main {
         int loops;
 
         // Set the clear color
-        glClearColor(0f, 0.0f, 0.0f, 0.0f);
-        glEnable(GL_CULL_FACE);
+        GL40.glClearColor(0f, 0.0f, 1.0f, 0.0f);
+        GL40.glEnable(GL_CULL_FACE);
         // Ensure we can capture the escape key being pressed below
         glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
@@ -156,7 +173,14 @@ public class Main {
             } while (System.currentTimeMillis() > next_game_tick && loops < MAX_FRAMESKIP);
 
             interpolation = (System.currentTimeMillis() + SKIP_TICKS - next_game_tick / (double) SKIP_TICKS);
+
+
             drawThings();
+            boolean result = this.program.XrMainFunction();
+            if (!result)
+            {
+                break;
+            }
         } // Check if the ESC key was pressed or the window was closed
         while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS && glfwWindowShouldClose(window) == false );
     }
@@ -169,7 +193,7 @@ public class Main {
     private void drawThings()
     {
         // Clear the screen. It's not mentioned before Tutorial 02, but it can cause flickering, so it's there nonetheless.
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL40.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //tri.draw(vp_matrix);
         sqr.draw(vp_matrix);
@@ -215,21 +239,23 @@ public class Main {
 
     private void checkMouse()
     {
-        double[] xpos = new double[2];
-        double[] ypos = new double[2];
 
-        glfwGetCursorPos(window, xpos, ypos);
-        glfwSetCursorPos(window, width/2, height/2);
-        horizontalAngle += mouseSpeed * (width/2 - xpos[0] );
-        verticalAngle   += mouseSpeed *  (height/2 - ypos[0] );
+            double[] xpos = new double[2];
+            double[] ypos = new double[2];
 
-        direction = new Vector3f( (float) (Math.cos(verticalAngle) * Math.sin(horizontalAngle)), (float) Math.sin(verticalAngle) , (float) (Math.cos(verticalAngle) * Math.cos(horizontalAngle)));
+            glfwGetCursorPos(window, xpos, ypos);
+            glfwSetCursorPos(window, width / 2, height / 2);
+            horizontalAngle += mouseSpeed * (width / 2 - xpos[0]);
+            verticalAngle += mouseSpeed * (height / 2 - ypos[0]);
 
-        right = new Vector3f((float)Math.sin(horizontalAngle - 3.14/2.0f) , 0, (float)Math.cos(horizontalAngle - 3.14/2.0f));
+            direction = new Vector3f((float) (Math.cos(verticalAngle) * Math.sin(horizontalAngle)), (float) Math.sin(verticalAngle), (float) (Math.cos(verticalAngle) * Math.cos(horizontalAngle)));
 
-        right.cross(direction, up);
+            right = new Vector3f((float) Math.sin(horizontalAngle - 3.14 / 2.0f), 0, (float) Math.cos(horizontalAngle - 3.14 / 2.0f));
 
-        calculateViewProjection();
+            right.cross(direction, up);
+
+            calculateViewProjection();
+
     }
 
 

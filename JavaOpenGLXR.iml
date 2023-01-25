@@ -7,7 +7,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="lwjgl-glfw-natives-windows" level="project" />
     <orderEntry type="library" name="joml-1.10.5" level="project" />
+    <orderEntry type="library" name="lwjgl-glfw-natives-windows" level="project" />
   </component>
 </module>
